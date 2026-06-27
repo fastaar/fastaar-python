@@ -26,7 +26,7 @@ class TestFastaarClient(unittest.TestCase):
                 "id": "pay_01jxyz",
                 "status": "pending",
                 "amount": 1250,
-                "invoice_id": "ORDER-42",
+                "invoice_number": "ORDER-42",
                 "checkout_url": "https://fastaar.test/checkout/01jxyz"
             }
         }
@@ -34,7 +34,7 @@ class TestFastaarClient(unittest.TestCase):
 
         params = {
             "amount": 1250,
-            "invoice_id": "ORDER-42",
+            "invoice_number": "ORDER-42",
             "success_url": "https://shop.example.com/thanks"
         }
         payment = self.client.create_payment(params)
@@ -98,25 +98,25 @@ class TestFastaarClient(unittest.TestCase):
         self.assertEqual(req.method, "GET")
 
     @patch("urllib.request.urlopen")
-    def test_find_by_invoice_id_found(self, mock_urlopen: MagicMock) -> None:
+    def test_find_by_invoice_number_found(self, mock_urlopen: MagicMock) -> None:
         response_data = {
             "data": [
-                {"id": "pay_01jxyz", "invoice_id": "ORDER-42"}
+                {"id": "pay_01jxyz", "invoice_number": "ORDER-42"}
             ]
         }
         mock_urlopen.return_value = self._mock_response(200, json.dumps(response_data))
 
-        payment = self.client.find_by_invoice_id("ORDER-42")
+        payment = self.client.find_by_invoice_number("ORDER-42")
 
         self.assertIsNotNone(payment)
         self.assertEqual(payment["id"], "pay_01jxyz")
 
     @patch("urllib.request.urlopen")
-    def test_find_by_invoice_id_not_found(self, mock_urlopen: MagicMock) -> None:
+    def test_find_by_invoice_number_not_found(self, mock_urlopen: MagicMock) -> None:
         response_data = {"data": []}
         mock_urlopen.return_value = self._mock_response(200, json.dumps(response_data))
 
-        payment = self.client.find_by_invoice_id("ORDER-42")
+        payment = self.client.find_by_invoice_number("ORDER-42")
 
         self.assertIsNull = self.assertIsNone(payment)
 

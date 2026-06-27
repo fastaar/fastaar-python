@@ -9,7 +9,7 @@ from fastaar.signature import WebhookSignature
 class TestWebhookSignature(unittest.TestCase):
     def setUp(self) -> None:
         self.secret = "super-secret-key"
-        self.raw_body = '{"event":"payment.completed","data":{"invoice_id":"ORDER-42"}}'
+        self.raw_body = '{"event":"payment.completed","data":{"invoice_number":"ORDER-42"}}'
         self.timestamp = int(time.time())
 
     def _generate_signature(self, secret: str, timestamp: int, body: str) -> str:

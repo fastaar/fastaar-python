@@ -25,19 +25,23 @@ class FastaarClient:
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
 
+    # -------------------------------------------------------------------------
+    # Payments
+    # -------------------------------------------------------------------------
+
     def create_payment(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a payment intent.
 
-        Reusing the same `invoice_id` returns the existing payment instead of
+        Reusing the same `invoice_number` returns the existing payment instead of
         creating a duplicate (HTTP 200 rather than 201), so retries are safe.
         Supply `success_url`/`cancel_url` to return the customer to your site
-        after checkout; Fastaar appends `payment_id` (and `invoice_id`) to them.
+        after checkout; Fastaar appends `payment_id` (and `invoice_number`) to them.
 
         Args:
             params: Dictionary containing:
                 - amount: int|float|str (required)
-                - invoice_id: str (optional)
+                - invoice_number: str (required)
                 - success_url: str (optional)
                 - cancel_url: str (optional)
                 - metadata: dict (optional)
@@ -67,7 +71,7 @@ class FastaarClient:
         Args:
             params: Dictionary containing optional filters:
                 - status: str (optional)
-                - invoice_id: str (optional)
+                - invoice_number: str (optional)
                 - per_page: int (optional)
                 - page: int (optional)
         """
@@ -81,12 +85,55 @@ class FastaarClient:
             raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
         return result
 
-    def find_by_invoice_id(self, invoice_id: str) -> Optional[Dict[str, Any]]:
+    def find_by_invoice_number(self, invoice_number: str) -> Optional[Dict[str, Any]]:
         """
-        Find the most recent payment for one of your invoice IDs, or None if none.
+        Find the most recent payment for one of your invoice numbers, or None if none.
         """
-        payments = self.list_payments({"invoice_id": invoice_id})
+        payments = self.list_payments({"invoice_number": invoice_number})
         return payments[0] if payments else None
+
+    # -------------------------------------------------------------------------
+    # Customers
+    # -------------------------------------------------------------------------
+
+    def list_customers(self, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        List customers, newest first.
+
+        Args:
+            params: Optional filters — email, phone, per_page, page.
+        """
+        query = "?" + urllib.parse.urlencode(params) if params else ""
+        result = self._request("GET", f"/api/v1/customers{query}")
+        if not isinstance(result, list):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
+
+    def create_customer(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Create a customer.
+
+        Args:
+            params: name (required), phone (required), email, address, notes.
+        """
+        result = self._request("POST", "/api/v1/customers", body=params)
+        if not isinstance(result, dict):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
+
+    def get_customer(self, customer_id: int) -> Dict[str, Any]:
+        """Retrieve a customer by ID."""
+        result = self._request("GET", f"/api/v1/customers/{customer_id}")
+        if not isinstance(result, dict):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
+
+    def update_customer(self, customer_id: int, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Update a customer (partial — only sent fields are changed)."""
+        result = self._request("PATCH", f"/api/v1/customers/{customer_id}", body=params)
+        if not isinstance(result, dict):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
 
     def _request(
         self,

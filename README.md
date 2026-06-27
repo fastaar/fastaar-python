@@ -24,7 +24,7 @@ fastaar = FastaarClient(api_key=os.getenv('FASTAAR_API_KEY'))  # fk_live_... or 
 
 payment = fastaar.create_payment({
     'amount': 1250,
-    'invoice_id': 'ORDER-42',                         # your order reference
+    'invoice_number': 'ORDER-42',                         # required — your order reference
     'success_url': 'https://shop.example.com/thanks', # optional, customer returns here
     'cancel_url': 'https://shop.example.com/cart',    # optional
 })
@@ -34,7 +34,7 @@ checkout_url = payment['checkout_url']
 print(f"Redirecting customer to: {checkout_url}")
 ```
 
-Passing the same `invoice_id` again returns the existing payment instead of creating a duplicate, so a retried request never double-charges.
+`invoice_number` is idempotent: retrying with the same value returns the existing payment instead of creating a duplicate, so a dropped connection never double-charges.
 
 ## Confirm the order from a webhook
 
@@ -58,7 +58,7 @@ if not WebhookSignature.verify(secret, raw_body, signature):
 event = request.json()
 
 if event['event'] == 'payment.completed':
-    order_id = event['data']['invoice_id']
+    order_id = event['data']['invoice_number']
     payment_id = event['data']['id']
     # Mark the order as paid idempotently using the payment_id as key
     print(f"Payment completed: {payment_id} for invoice {order_id}")
@@ -66,17 +66,37 @@ if event['event'] == 'payment.completed':
 return "OK", 200
 ```
 
-## Other calls
+## Other payment calls
 
 ```python
 # Retrieve one payment by its ID (e.g. "01jxyz...")
 payment = fastaar.get_payment('01jxyz...')
 
-# Look up most recent payment by your reference/invoice ID
-payment = fastaar.find_by_invoice_id('ORDER-42')
+# Look up most recent payment by your reference
+payment = fastaar.find_by_invoice_number('ORDER-42')
 
 # List payments
 payments = fastaar.list_payments(params={'status': 'completed'})
+```
+
+## Customers
+
+Store customer records to attach them to payments collected via payment links.
+
+```python
+# Create a customer — name and phone are required
+customer = fastaar.create_customer({
+    'name':    'Rahim Uddin',
+    'phone':   '01712345678',
+    'email':   'rahim@example.com',   # optional
+    'address': 'Dhaka, Bangladesh',   # optional
+    'notes':   'VIP customer',        # optional
+})
+
+# Retrieve, update, list
+customer  = fastaar.get_customer(customer['id'])
+customer  = fastaar.update_customer(customer['id'], {'name': 'Rahim Ahmed'})
+customers = fastaar.list_customers({'email': 'rahim@example.com'})
 ```
 
 ## Error Handling
@@ -87,7 +107,7 @@ Errors raise `fastaar.FastaarException` with `error_type` (e.g. `authentication_
 from fastaar import FastaarException
 
 try:
-    payment = fastaar.create_payment({'amount': 100})
+    payment = fastaar.create_payment({'amount': 100, 'invoice_number': 'ORDER-42'})
 except FastaarException as e:
     print(f"API Error: {e}")
     print(f"Type: {e.error_type}")
