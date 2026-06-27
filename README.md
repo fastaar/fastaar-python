@@ -77,6 +77,9 @@ payment = fastaar.find_by_invoice_number('ORDER-42')
 
 # List payments
 payments = fastaar.list_payments(params={'status': 'completed'})
+
+# Refund a completed payment
+payment = fastaar.refund_payment('01jxyz...')
 ```
 
 ## Customers

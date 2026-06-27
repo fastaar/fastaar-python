@@ -92,6 +92,22 @@ class FastaarClient:
         payments = self.list_payments({"invoice_number": invoice_number})
         return payments[0] if payments else None
 
+    def refund_payment(self, payment_id: str) -> Dict[str, Any]:
+        """
+        Refund a completed payment. Only payments with status `completed` can be refunded.
+
+        Returns:
+            The updated payment object with status `refunded`.
+
+        Raises:
+            FastaarException: if the payment is not in a refundable state.
+        """
+        encoded_id = urllib.parse.quote(payment_id, safe="")
+        result = self._request("POST", f"/api/v1/payments/{encoded_id}/refund")
+        if not isinstance(result, dict):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
+
     # -------------------------------------------------------------------------
     # Customers
     # -------------------------------------------------------------------------
@@ -184,10 +200,8 @@ class FastaarClient:
             error_type = "api_error"
 
             if isinstance(decoded, dict):
-                error_info = decoded.get("error")
-                if isinstance(error_info, dict):
-                    error_message = error_info.get("message")
-                    error_type = error_info.get("type", "api_error")
+                error_message = decoded.get("message")
+                error_type = decoded.get("code", "api_error")
 
             if not error_message:
                 error_message = f"Fastaar API returned HTTP {status_code}."
