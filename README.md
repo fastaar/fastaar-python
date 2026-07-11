@@ -22,6 +22,8 @@ from fastaar import FastaarClient
 
 fastaar = FastaarClient(api_key=os.getenv('FASTAAR_API_KEY'))  # fk_live_... or fk_test_...
 
+# The key must have the `payments:write` ability (and not be expired) or this
+# call returns a 403 `ability_denied` / 401 `authentication_error` error.
 payment = fastaar.create_payment({
     'amount': 1250,
     'invoice_number': 'ORDER-42',                         # required — your order reference
