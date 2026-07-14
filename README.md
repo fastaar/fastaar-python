@@ -1,5 +1,9 @@
 # Fastaar Python SDK
 
+[![CI](https://github.com/fastaar/fastaar-python/actions/workflows/ci.yml/badge.svg)](https://github.com/fastaar/fastaar-python/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/fastaar-python.svg)](https://pypi.org/project/fastaar-python/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 Accept bKash & Nagad payments on any Python website or application via [Fastaar](https://fastaar.com).
 
 This is a zero-dependency SDK utilizing Python's standard library.
