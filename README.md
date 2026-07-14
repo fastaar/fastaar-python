@@ -27,6 +27,7 @@ fastaar = FastaarClient(api_key=os.getenv('FASTAAR_API_KEY'))  # fk_live_... or 
 payment = fastaar.create_payment({
     'amount': 1250,
     'invoice_number': 'ORDER-42',                         # required — your order reference
+    'customer_id': customer['id'] if customer else None, # optional — attach an existing customer
     'success_url': 'https://shop.example.com/thanks', # optional, customer returns here
     'cancel_url': 'https://shop.example.com/cart',    # optional
 })
@@ -36,7 +37,11 @@ checkout_url = payment['checkout_url']
 print(f"Redirecting customer to: {checkout_url}")
 ```
 
-`invoice_number` is idempotent: retrying with the same value returns the existing payment instead of creating a duplicate, so a dropped connection never double-charges.
+`invoice_number` is idempotent: if a payment already exists for it and hasn't reached `failed`
+or `expired`, creating another one raises a `FastaarException` with error type
+`duplicate_invoice_number` (HTTP 409) instead of creating a duplicate — so a dropped connection
+never double-charges. Use `find_by_invoice_number()` to look the existing payment up rather than
+retrying blindly.
 
 ## Confirm the order from a webhook
 
@@ -80,8 +85,10 @@ payment = fastaar.find_by_invoice_number('ORDER-42')
 # List payments
 payments = fastaar.list_payments(params={'status': 'completed'})
 
-# Refund a completed payment
-payment = fastaar.refund_payment('01jxyz...')
+# Refund a completed (or partially refunded) payment
+payment = fastaar.refund_payment('01jxyz...')          # refund the full remaining balance
+payment = fastaar.refund_payment('01jxyz...', 200)     # or refund only part of it
+refunds = fastaar.list_refunds('01jxyz...')            # full refund history, newest first
 ```
 
 ## Customers

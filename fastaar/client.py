@@ -33,15 +33,18 @@ class FastaarClient:
         """
         Create a payment intent.
 
-        Reusing the same `invoice_number` returns the existing payment instead of
-        creating a duplicate (HTTP 200 rather than 201), so retries are safe.
-        Supply `success_url`/`cancel_url` to return the customer to your site
+        Reusing the same `invoice_number` while a previous payment for it is still
+        active (not `failed`/`expired`) raises a FastaarException with error type
+        `duplicate_invoice_number` (HTTP 409) instead of creating a duplicate — look
+        the existing payment up with `find_by_invoice_number()` rather than retrying
+        blindly. Supply `success_url`/`cancel_url` to return the customer to your site
         after checkout; Fastaar appends `payment_id` (and `invoice_number`) to them.
 
         Args:
             params: Dictionary containing:
                 - amount: int|float|str (required)
                 - invoice_number: str (required)
+                - customer_id: int (optional) - an existing customer belonging to your merchant account
                 - success_url: str (optional)
                 - cancel_url: str (optional)
                 - metadata: dict (optional)
@@ -92,19 +95,35 @@ class FastaarClient:
         payments = self.list_payments({"invoice_number": invoice_number})
         return payments[0] if payments else None
 
-    def refund_payment(self, payment_id: str) -> Dict[str, Any]:
+    def refund_payment(self, payment_id: str, amount: Optional[float] = None) -> Dict[str, Any]:
         """
-        Refund a completed payment. Only payments with status `completed` can be refunded.
+        Refund a payment, in full or in part. Only payments with status `completed` or
+        `partially_refunded` can be refunded. Pass an amount to refund only part of the
+        remaining balance; omit it to refund whatever is still refundable.
 
         Returns:
-            The updated payment object with status `refunded`.
+            The updated payment object. `status` is `refunded` once fully refunded, or
+            `partially_refunded` if some balance remains.
 
         Raises:
-            FastaarException: if the payment is not in a refundable state.
+            FastaarException: if the payment is not in a refundable state, or the amount
+                exceeds the remaining refundable balance.
         """
         encoded_id = urllib.parse.quote(payment_id, safe="")
-        result = self._request("POST", f"/api/v1/payments/{encoded_id}/refund")
+        body = {"amount": amount} if amount is not None else None
+        result = self._request("POST", f"/api/v1/payments/{encoded_id}/refund", body=body)
         if not isinstance(result, dict):
+            raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
+        return result
+
+    def list_refunds(self, payment_id: str) -> List[Dict[str, Any]]:
+        """
+        List a payment's refund history, newest first — one entry per refund call, even
+        across several partial refunds.
+        """
+        encoded_id = urllib.parse.quote(payment_id, safe="")
+        result = self._request("GET", f"/api/v1/payments/{encoded_id}/refunds")
+        if not isinstance(result, list):
             raise FastaarException("Fastaar API returned an unexpected response format.", "api_error")
         return result
 
@@ -200,8 +219,10 @@ class FastaarClient:
             error_type = "api_error"
 
             if isinstance(decoded, dict):
-                error_message = decoded.get("message")
-                error_type = decoded.get("code", "api_error")
+                error_details = decoded.get("error", decoded)
+                if isinstance(error_details, dict):
+                    error_message = error_details.get("message")
+                    error_type = error_details.get("type", "api_error")
 
             if not error_message:
                 error_message = f"Fastaar API returned HTTP {status_code}."
